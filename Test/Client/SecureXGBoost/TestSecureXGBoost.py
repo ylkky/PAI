@@ -37,12 +37,14 @@ def test_credit_data_2pc():
         "sync_info": {
             "seed": 8964
         },
-        "max_iteration": 50,
+        "max_iteration": 5,
         "max_depth": 4,
         "reg_lambda" : 1,
         "gamma" : 0.,
         "col_sample_ratio" : 0.8,
-        "row_sample_ratio" : 1.
+        "row_sample_ratio" : 1.,
+        "batch_size" : None,
+        "test_batch_size" : None
     }
     main_client = MainClient(channel0, Logger(prefix="Main client:"), mpc_paras,
                              AUC_KS, config)

@@ -7,10 +7,14 @@ def AUC_KS(y_true, y_pred):
     ks = max(tpr - fpr)
     return [auc, ks]
 
+def onehot_accuracy(ys, pred_ys):
+    acc = np.mean(np.argmax(ys, 1) == np.argmax(pred_ys, 1))
+    return acc
 
 metric_dict = {
         "auc": roc_auc_score,
-        "auc_ks": AUC_KS
+        "auc_ks": AUC_KS,
+        "acc": onehot_accuracy
     }
 
 

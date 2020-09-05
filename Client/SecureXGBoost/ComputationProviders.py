@@ -29,8 +29,8 @@ class MainClient(MPCC.MainClient):
 
     def _before_training(self):
         # send config dict to every data client
-        self.broadcaster.broadcast(self.feature_client_ids + [self.label_client_id], PackedMessage(
-            MessageType.XGBOOST_TRAIN_CONFIG, self.config
+        self.broadcaster.broadcast(self.feature_client_ids + [self.label_client_id],
+                                   PackedMessage(MessageType.XGBOOST_TRAIN_CONFIG, self.config
         ))
         if self.broadcaster.error:
             self.logger.logE("Broadcast training config message failed. Stop training.")
@@ -38,6 +38,7 @@ class MainClient(MPCC.MainClient):
 
         if not self._get_raw_abel_data():
             return False
+        # self.broadcaster.receive_all(self.feature_client_ids, MessageType.CLIENT_READY)
         return True
 
     def _get_raw_abel_data(self):
@@ -50,7 +51,7 @@ class MainClient(MPCC.MainClient):
             return False
         return True
 
-    def get_label_data(self, client):
+    def get_residual(self, client):
         """
         从selected client处获取新的label，赋值给self.label_data
         """
@@ -67,7 +68,6 @@ class MainClient(MPCC.MainClient):
         if self.broadcaster.error:
             self.logger.logE("Gather clients' outputs failed. Stop training")
             return False
-
         # send ack msg to the client which has the min loss
         selected = None
         for data_client in self.feature_client_ids:
@@ -86,7 +86,7 @@ class MainClient(MPCC.MainClient):
             self.logger.logE("Broadcast split info failed. Stop training")
             return False
 
-        if not self.get_label_data(selected):
+        if not self.get_residual(selected):
             return False
 
         return True
@@ -100,7 +100,7 @@ class MainClient(MPCC.MainClient):
         for i in range(self.config['max_iteration']):  # server控制最大迭代次数
             train_res = self._train_one_round()
             n_rounds += 1
-            self.logger.log("Label Client: Train round %d finished" % n_rounds)
+            self.logger.log("MainClient: Train round %d finished" % n_rounds)
             # if n_rounds > 5:
             #     self._broadcast_start(stop=True)
             #     break
@@ -122,8 +122,8 @@ class MainClient(MPCC.MainClient):
 
         """get gain information and compare split node"""
         train_res = self.compare_split_node()
-        if train_res:
-            self.logger.logE("Error encountered while getting gain")
+        if not train_res:
+            self.logger.logE("Error encountered while splitting nodes")
             return False
 
         return True
@@ -152,7 +152,7 @@ class MainClient(MPCC.MainClient):
 
         y_pred_dict = self.broadcaster.receive_all(self.feature_client_ids, MessageType.XGBOOST_PRED_LABEL)
         if self.broadcaster.error:
-            self.logger.logE("Gether predict y failed")
+            self.logger.logE("Gather predict y failed")
             return False
 
         for y_pred in y_pred_dict.values():
@@ -160,6 +160,7 @@ class MainClient(MPCC.MainClient):
 
         print(y_preds)
         res = self.metric_func(y_true, y_preds)
-        self.logger.log("Predict auc={:2f}, ks={:2.f}".format(*res))
+        print(res)
+        self.logger.log("Predict auc={:.2f}, ks={:.2f}".format(*res))
 
 

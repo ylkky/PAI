@@ -30,6 +30,16 @@ class MessageType(Enum):
     SharedNN_FeatureClientGrad = indexer.auto()
     SharedNN_FeatureClientParaGrad = indexer.auto()
 
+    XGBOOST_TRAIN_CONFIG = indexer.auto()
+    XGBOOST_GAIN = indexer.auto()
+    XGBOOST_RESIDUAL = indexer.auto()
+    XGBOOST_SELECTED_NODE = indexer.auto()
+    XGBOOST_NEXT_TRAIN_ROUND = indexer.auto()
+    XGBOOST_TRAINING_STOP = indexer.auto()
+    XGBOOST_TRAIN = indexer.auto()
+    XGBOOST_LABEL = indexer.auto()
+    XGBOOST_PRED_LABEL = indexer.auto()
+
     CLIENT_READY = indexer.auto()
     """
     """
