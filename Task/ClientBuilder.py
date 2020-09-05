@@ -9,6 +9,10 @@ from Client.Data.DataLoader import CSVDataLoader
 from Client.Learning.Losses import get_loss
 from Client.Learning.Metrics import get_metric
 
+from Client.SecureXGBoost.DataProviders import FeatureClient as SecureXGBoost_FeatureClient
+from Client.SecureXGBoost.DataProviders import LabelClient as SecureXGBoost_LabelClient
+from Client.SecureXGBoost.ComputationProviders import MainClient as SecureXGBoost_MainClient
+
 
 class ClientHandle:
     def __init__(self, client, calls: dict, start):
@@ -75,3 +79,23 @@ client_builder_dict = {
 def build_client(arg_dict: dict):
     client_type = arg_dict["client_type"]
     return client_builder_dict[client_type](arg_dict)
+
+
+def build_SecureXGBoost_MainClient(arg_dict: dict):
+    client = SecureXGBoost_MainClient(arg_dict["channel"], arg_dict["logger"], arg_dict["mpc_paras"],
+                                 arg_dict["metric_func"], arg_dict["config"])
+    return ClientHandle(client, dict(), client.start_train)
+
+
+def build_SecureXGBoost_FeatureClient(arg_dict: dict):
+    client = SecureXGBoost_FeatureClient(arg_dict["channel"], arg_dict["logger"], arg_dict["mpc_paras"],
+                                    CSVDataLoader(arg_dict["data_path"] + "train.csv"),
+                                    CSVDataLoader(arg_dict["data_path"] + "test.csv"))
+    return ClientHandle(client, dict(), client.start_train)
+
+
+def build_SecureXGBoost_LabelClient(arg_dict: dict):
+    client = SecureXGBoost_LabelClient(arg_dict["channel"], arg_dict["logger"], arg_dict["mpc_paras"],
+                                  CSVDataLoader(arg_dict["data_path"] + "train.csv"),
+                                  CSVDataLoader(arg_dict["data_path"] + "test.csv"))
+    return ClientHandle(client, dict(), client.start_train)
