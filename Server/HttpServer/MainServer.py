@@ -13,7 +13,7 @@ from Server.HttpServer.BroadcastRequests import broadcast_request
 
 main_server = Flask(__name__)
 
-logger = Logger(open(ServerLogPath + "/main_server-%d_log.txt" % id(main_server), "a"), level=0)
+logger = Logger(open(ServerLogPath + "main_server-%d_log.txt" % id(main_server), "a"), level=0)
 
 
 def resp_msg(status="ok", msg=None):

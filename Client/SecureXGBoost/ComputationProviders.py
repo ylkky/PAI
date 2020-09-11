@@ -6,7 +6,8 @@ from Communication.Channel import BaseChannel
 import Client.MPCClient as MPCC
 from Client.Common.BroadcastClient import BroadcastClient
 from Utils.Log import Logger
-from Client.Learning.Metrics import onehot_accuracy
+from Client.Learning.Metrics import onehot_accuracy,AUC_KS
+import time
 
 class MainClient(MPCC.MainClient):
     def __init__(self, channel: BaseChannel, logger: Logger,
@@ -18,10 +19,16 @@ class MainClient(MPCC.MainClient):
         self.error = False
         self.finished = False
 
-        if metric_func is None:
-            self.metric_func = onehot_accuracy
+        # if metric_func is None:
+        #     self.metric_func = onehot_accuracy
+        # else:
+        #     self.metric_func = metric_func
+
+        if metric_func=='auc_ks':
+            self.metric_func = AUC_KS
         else:
-            self.metric_func = metric_func
+            self.metric_func = onehot_accuracy
+
 
         self.broadcaster = BroadcastClient(self.channel, self.logger)
         # get labels
@@ -32,13 +39,17 @@ class MainClient(MPCC.MainClient):
         self.broadcaster.broadcast(self.feature_client_ids + [self.label_client_id],
                                    PackedMessage(MessageType.XGBOOST_TRAIN_CONFIG, self.config
         ))
+
         if self.broadcaster.error:
             self.logger.logE("Broadcast training config message failed. Stop training.")
             return False
 
-        if not self._get_raw_abel_data():
-            return False
+        #
+        # if not self._get_raw_abel_data():
+        #     return False
         # self.broadcaster.receive_all(self.feature_client_ids, MessageType.CLIENT_READY)
+
+
         return True
 
     def _get_raw_abel_data(self):
@@ -96,7 +107,11 @@ class MainClient(MPCC.MainClient):
             return False
 
         self.logger.log("MainClient started")
+        time.sleep(3)
+        self._get_raw_abel_data()
+
         n_rounds = 0
+
         for i in range(self.config['max_iteration']):  # server控制最大迭代次数
             train_res = self._train_one_round()
             n_rounds += 1
@@ -150,7 +165,10 @@ class MainClient(MPCC.MainClient):
 
         y_preds = np.zeros((y_true.shape[0]))
 
+
         y_pred_dict = self.broadcaster.receive_all(self.feature_client_ids, MessageType.XGBOOST_PRED_LABEL)
+
+
         if self.broadcaster.error:
             self.logger.logE("Gather predict y failed")
             return False
@@ -160,6 +178,7 @@ class MainClient(MPCC.MainClient):
 
         print(y_preds)
         res = self.metric_func(y_true, y_preds)
+
         print(res)
         self.logger.log("Predict auc={:.2f}, ks={:.2f}".format(*res))
 

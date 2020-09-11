@@ -124,7 +124,9 @@ class CART:
             if j not in col_sample_indices:
                 continue
             # 找最佳分裂特征对应的最佳分裂点
+
             for i in range(9):
+                print(X[:, j])
                 s = np.percentile(X[:, j], (i+1)*10)
                 tmp_left=np.where(X[indices,j]<=s)[0]
                 tmp_right=np.where(X[indices,j]>s)[0]

@@ -43,7 +43,7 @@ task_request = {
             "addr": "127.0.0.1",
             "http_port": 8884,
             "client_config": {
-                "computation_port": 18885,
+                "computation_port": 8885,
                 "client_type": "alignment_data",
                 "raw_data_path": "Splitted_Indexed_Data/credit_default_label.csv",
                 "out_data_path": "test-l"
@@ -51,7 +51,8 @@ task_request = {
         }
     ]
 }
+print(task_request)
+# resp = requests.post("http://10.214.192.22:8380/createTask", json=task_request)
+resp = requests.post("http://127.0.0.1:8380/createTask", json=task_request)
 
-resp = requests.post("http://10.214.192.22:8380/createTask", json=task_request)
-# resp = requests.post("http://127.0.0.1:8380/createTask", json=task_request)
 print(resp.status_code, resp.text)

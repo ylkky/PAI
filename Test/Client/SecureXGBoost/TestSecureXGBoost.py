@@ -50,15 +50,15 @@ def test_credit_data_2pc():
                              AUC_KS, config)
     # triplets_provider = TripletProducer(channel1, Logger(prefix="Triplet provider:"), mpc_paras, [2, 3])
     data_client0 = FeatureClient(channel2, Logger(prefix="Data client 0:"), mpc_paras,
-                                 CSVDataLoader("Test/TestDataset/Data/credit_default.csv", list(range(40000)), list(range(30))),
-                                 CSVDataLoader("Test/TestDataset/Data/credit_default.csv", list(range(40000, 50000)), list(range(30))))
+                                 CSVDataLoader("Test/TestDataset/Data/credit_default.csv", list(range(400)), list(range(30))),
+                                 CSVDataLoader("Test/TestDataset/Data/credit_default.csv", list(range(400, 500)), list(range(30))))
     data_client1 = FeatureClient(channel3, Logger(prefix="Data client 1:"), mpc_paras,
-                                 CSVDataLoader("Test/TestDataset/Data/credit_default.csv", list(range(40000)), list(range(30, 72))),
-                                 CSVDataLoader("Test/TestDataset/Data/credit_default.csv", list(range(40000, 50000)), list(range(30, 72))))
+                                 CSVDataLoader("Test/TestDataset/Data/credit_default.csv", list(range(400)), list(range(30, 72))),
+                                 CSVDataLoader("Test/TestDataset/Data/credit_default.csv", list(range(400, 500)), list(range(30, 72))))
 
     label_client = LabelClient(channel4, Logger(prefix="Lable client:"), mpc_paras,
-                               CSVDataLoader("Test/TestDataset/Data/credit_default.csv", list(range(40000)), list(range(72, 73))),
-                               CSVDataLoader("Test/TestDataset/Data/credit_default.csv", list(range(40000, 50000)),
+                               CSVDataLoader("Test/TestDataset/Data/credit_default.csv", list(range(400)), list(range(72, 73))),
+                               CSVDataLoader("Test/TestDataset/Data/credit_default.csv", list(range(400, 500)),
                                              list(range(72, 73))))
     main_client_start_th = threading.Thread(
         target=main_client.start_train,
@@ -71,7 +71,7 @@ def test_credit_data_2pc():
     data_client0_th.start()
     data_client1_th.start()
     label_client_th.start()
-    time.sleep(1)
+    time.sleep(2)
     main_client_start_th.start()
     print("====== Stop the triplet provider, the training should be auto exited =========")
     main_client_start_th.join()

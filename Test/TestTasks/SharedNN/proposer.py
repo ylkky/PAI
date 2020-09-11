@@ -1,6 +1,5 @@
 import requests
 
-
 task_request = {
     "task_name": "test-shared_nn",
     "clients": [

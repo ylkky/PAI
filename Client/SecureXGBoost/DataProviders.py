@@ -68,7 +68,7 @@ class FeatureClient(DataClient):
         self.col_sample_ratio = config["col_sample_ratio"]
         self.row_sample_ratio = config["row_sample_ratio"]
 
-    def _before_trainning(self, wait_for_server: float = 100):
+    def _before_trainning(self, wait_for_server: float = 250):
         """
         Receive config message from server, then initialize some parameters
         After this, send CLIENT_READY message to server
@@ -86,7 +86,7 @@ class FeatureClient(DataClient):
         self.logger.log("Received train conifg message: %s" % msg.data)
         return True
 
-    def start_train(self, wait_for_server: float = 100):
+    def start_train(self, wait_for_server: float = 250):
         """
         Receive config message from server, then initialize some parameters
         After this, send CLIENT_READY message to server
@@ -264,6 +264,8 @@ class LabelClient(DataClient):
                  label_loader: DataLoader, test_label_loader: DataLoader):
         super(LabelClient, self).__init__(channel, logger, mpc_paras, label_loader, test_label_loader)
         self.finish = False
+        self.test_record = []
+
         self.logger.log("LabelClient has initialized...")
 
     def _before_training(self):
@@ -275,6 +277,7 @@ class LabelClient(DataClient):
         except:
             self.logger.logE("Get training config from server failed. Stop training.")
             return False
+
         # send label to main client
         if not self.send_label_to_main():
             return False
@@ -306,6 +309,11 @@ class LabelClient(DataClient):
         except:
             self.logger.logE("Error encountered while receiving server's start message")
             return False
+        return True
+
+    def _compute_loss(self):
+
+
         return True
 
     def start_train(self):

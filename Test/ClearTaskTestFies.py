@@ -12,7 +12,7 @@ for task_json in pathlib.Path("Test/TestTasks/MainServerRoot/").iterdir():
 for task_dir in pathlib.Path("Test/TestTasks/ClientTaskRoot/").iterdir():
     print("Removing: ", task_dir)
     shutil.rmtree(str(task_dir))
-for datagen_dir in pathlib.Path("Test/TestDataset/GeneratedData/").iterdir():
-    print("Removing: ", datagen_dir)
-    shutil.rmtree(str(datagen_dir))
+# for datagen_dir in pathlib.Path("Test/TestDataset/GeneratedData/").iterdir():
+#     print("Removing: ", datagen_dir)
+#     shutil.rmtree(str(datagen_dir))
 print("done.")

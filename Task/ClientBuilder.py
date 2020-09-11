@@ -4,7 +4,7 @@ from Client.SharedNN.DataProviders import FeatureClient as SharedNN_FeatureClien
 from Client.SharedNN.DataProviders import LabelClient as SharedNN_LabelClient
 from Client.Preprocess.AlignmentClient import PreprocessClient as Alignment_DataClient
 from Client.Preprocess.AlignmentClient import MainPreprocessor as Alignment_MainClient
-
+#
 from Client.Data.DataLoader import CSVDataLoader
 from Client.Learning.Losses import get_loss
 from Client.Learning.Metrics import get_metric
@@ -66,24 +66,10 @@ def build_Alignment_MainClient(arg_dict: dict):
     return ClientHandle(client, dict(), client.start_align)
 
 
-client_builder_dict = {
-    "triplet_producer": build_TripletProducer,
-    "shared_nn_feature": build_SharedNN_FeatureClient,
-    "shared_nn_label": build_SharedNN_LabelClient,
-    "shared_nn_main": build_SharedNN_MainClient,
-    "alignment_data": build_Alignment_DataClient,
-    "alignment_main": build_Alignment_MainClient
-}
-
-
-def build_client(arg_dict: dict):
-    client_type = arg_dict["client_type"]
-    return client_builder_dict[client_type](arg_dict)
-
 
 def build_SecureXGBoost_MainClient(arg_dict: dict):
     client = SecureXGBoost_MainClient(arg_dict["channel"], arg_dict["logger"], arg_dict["mpc_paras"],
-                                 arg_dict["metric_func"], arg_dict["config"])
+                                 arg_dict["metric"], arg_dict["config"])
     return ClientHandle(client, dict(), client.start_train)
 
 
@@ -97,5 +83,24 @@ def build_SecureXGBoost_FeatureClient(arg_dict: dict):
 def build_SecureXGBoost_LabelClient(arg_dict: dict):
     client = SecureXGBoost_LabelClient(arg_dict["channel"], arg_dict["logger"], arg_dict["mpc_paras"],
                                   CSVDataLoader(arg_dict["data_path"] + "train.csv"),
-                                  CSVDataLoader(arg_dict["data_path"] + "test.csv"))
-    return ClientHandle(client, dict(), client.start_train)
+                                  CSVDataLoader(arg_dict["data_path"] + "test.csv"),)
+
+
+    return ClientHandle(client,{"record": lambda: client.test_record}, client.start_train)
+
+client_builder_dict = {
+    "triplet_producer": build_TripletProducer,
+    "shared_nn_feature": build_SharedNN_FeatureClient,
+    "shared_nn_label": build_SharedNN_LabelClient,
+    "shared_nn_main": build_SharedNN_MainClient,
+    "alignment_data": build_Alignment_DataClient,
+    "alignment_main": build_Alignment_MainClient,
+    "secure_xgboost_main":build_SecureXGBoost_MainClient,
+    "secure_xgboost_feature":build_SecureXGBoost_FeatureClient,
+    "secure_xgboost_label":build_SecureXGBoost_LabelClient
+}
+
+
+def build_client(arg_dict: dict):
+    client_type = arg_dict["client_type"]
+    return client_builder_dict[client_type](arg_dict)
