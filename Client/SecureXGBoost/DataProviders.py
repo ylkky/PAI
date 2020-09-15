@@ -1,5 +1,7 @@
 import numpy as np
+import pandas as pd
 import threading
+import time
 import Client.MPCClient as MPCC
 from Communication.Message import MessageType, PackedMessage
 from Communication.Channel import BaseChannel
@@ -68,7 +70,7 @@ class FeatureClient(DataClient):
         self.col_sample_ratio = config["col_sample_ratio"]
         self.row_sample_ratio = config["row_sample_ratio"]
 
-    def _before_trainning(self, wait_for_server: float = 250):
+    def _before_trainning(self, wait_for_server: float = 100):
         """
         Receive config message from server, then initialize some parameters
         After this, send CLIENT_READY message to server
@@ -86,7 +88,7 @@ class FeatureClient(DataClient):
         self.logger.log("Received train conifg message: %s" % msg.data)
         return True
 
-    def start_train(self, wait_for_server: float = 250):
+    def start_train(self, wait_for_server: float = 100):
         """
         Receive config message from server, then initialize some parameters
         After this, send CLIENT_READY message to server
@@ -127,29 +129,6 @@ class FeatureClient(DataClient):
                 self.send_check_msg(client_id, PackedMessage(MessageType.XGBOOST_GAIN, update))
             except:
                 self.logger.logE("Error encountered while sending gain to other client")
-                self.error = True
-
-        # get label
-        # label_data = None
-        # def get_label(client_id: int):
-        #     try:
-        #         nonlocal label_data
-        #         label_data=self.receive_check_msg(client_id, MessageType.NEXT_TRAIN_ROUND).data
-        #         print(label_data)
-        #     except:
-        #         self.logger.logE("Error encountered while receiving label from other client")
-        #         self.error = True
-        #
-        # receving_th = threading.Thread(target=get_label, args=(self.main_client_id,))
-        # receving_th.start()
-        # receving_th.join()
-
-        # send label
-        def send_label(client_id: int, label: np.ndarray):
-            try:
-                self.send_check_msg(client_id, PackedMessage(MessageType.XGBOOST_RESIDUAL, label))
-            except:
-                self.logger.logE("Error encountered while sending label to other client")
                 self.error = True
 
         # recevie select_node
@@ -208,10 +187,19 @@ class FeatureClient(DataClient):
         if select_node == 'ack':
             print('epoch ---- loss', np.mean(loss.forward()), '----client_id', self.client_id)
             self.estimators.append(estimator_t)
+            # predict
             self.send_check_msg(self.main_client_id, PackedMessage(MessageType.XGBOOST_RESIDUAL, label))
-            # sending_th = threading.Thread(target=send_label, args=(self.main_client_id, label))
-            # sending_th.start()
-            # sending_th.join()
+
+
+    def predict(self, mode='train'):
+        y_pred = 0
+        if mode == 'test':
+            data = self.test_data
+        else:
+            data = self.data
+        for estimator in self.estimators:
+            y_pred += estimator.predict(data)
+        return y_pred
 
     def _train_one_round(self):
         """
@@ -236,10 +224,7 @@ class FeatureClient(DataClient):
             # print(start_msg.header)
             if start_msg.header == MessageType.XGBOOST_TRAINING_STOP:
                 self.logger.log("Received server's training stop message, stop training")
-
-                y_pred = 0
-                for estimator in self.estimators:
-                    y_pred += estimator.predict(self.test_data)
+                y_pred = self.predict(mode='test')
                 print(y_pred)
                 sending_th = threading.Thread(target=send_pred, args=(self.main_client_id, y_pred,))
                 sending_th.start()
@@ -256,17 +241,26 @@ class FeatureClient(DataClient):
 
         self._local_train_one_round()
 
+        # predict after each round
+        y_pred = self.predict()
+        sending_th = threading.Thread(target=send_pred, args=(self.main_client_id, y_pred,))
+        sending_th.start()
+        sending_th.join()
         return True
 
 class LabelClient(DataClient):
     def __init__(self, channel: BaseChannel, logger: Logger,
                  mpc_paras: MPCC.MPCClientParas,
-                 label_loader: DataLoader, test_label_loader: DataLoader):
+                 label_loader: DataLoader, test_label_loader: DataLoader,
+                 metric_func, task_dir: str):
         super(LabelClient, self).__init__(channel, logger, mpc_paras, label_loader, test_label_loader)
-        self.finish = False
+        self.start_time = 0
         self.test_record = []
-
+        self.finish = False
         self.logger.log("LabelClient has initialized...")
+        self.n_rounds = 0
+        self.metric_func = metric_func
+        self.task_dir = task_dir
 
     def _before_training(self):
         try:
@@ -277,10 +271,13 @@ class LabelClient(DataClient):
         except:
             self.logger.logE("Get training config from server failed. Stop training.")
             return False
-
+        self.label = self.train_data_loader.get_batch(self.batch_size)
+        self.test_label = self.test_data_loader.get_batch(self.test_batch_size)
         # send label to main client
         if not self.send_label_to_main():
             return False
+        self.start_time = time.time()
+
         return True
 
     def send_label_to_main(self):
@@ -289,9 +286,9 @@ class LabelClient(DataClient):
 
             train = self.receive_check_msg(self.main_client_id, MessageType.XGBOOST_TRAIN).data
             if train:
-                data = self.train_data_loader.get_batch(self.batch_size)
+                data = self.label
             else:
-                data = self.test_data_loader.get_batch(self.test_batch_size)
+                data = self.test_label
             self.send_check_msg(self.main_client_id,
                                 PackedMessage(header, data))
         except:
@@ -306,14 +303,19 @@ class LabelClient(DataClient):
                                          [MessageType.XGBOOST_NEXT_TRAIN_ROUND, MessageType.XGBOOST_TRAINING_STOP])
             if rev.header == MessageType.XGBOOST_TRAINING_STOP:
                 self.finish = True
+                return True
         except:
             self.logger.logE("Error encountered while receiving server's start message")
             return False
-        return True
 
-    def _compute_loss(self):
+        # receive data after this round
+        try:
+            loss, metric = self.receive_check_msg(self.main_client_id, MessageType.XGBOOST_PRED_LABEL).data
+        except:
+            self.logger.logE("Error encountered while receiving server's message after round {}".format(self.n_rounds))
+            return False
 
-
+        self.test_record.append([time.time() - self.start_time, self.n_rounds, loss] + [metric])
         return True
 
     def start_train(self):
@@ -325,7 +327,12 @@ class LabelClient(DataClient):
             if not self._train_one_round():
                 return False
             if self.finish:
+                df = pd.DataFrame(self.test_record,
+                             columns=["time", "n_batches", "loss"] + ["metrics"] * (len(self.test_record[0]) - 3))
+                df.to_csv(self.task_dir + "record.csv", index=False)
+                # print(df)
                 break
+            self.n_rounds += 1
         # send test label to main
         if not self.send_label_to_main():
             return False

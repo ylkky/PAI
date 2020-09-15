@@ -8,6 +8,7 @@ from Client.Common.BroadcastClient import BroadcastClient
 from Utils.Log import Logger
 from Client.Learning.Metrics import onehot_accuracy,AUC_KS
 import time
+from copy import deepcopy
 
 class MainClient(MPCC.MainClient):
     def __init__(self, channel: BaseChannel, logger: Logger,
@@ -19,20 +20,17 @@ class MainClient(MPCC.MainClient):
         self.error = False
         self.finished = False
 
-        # if metric_func is None:
-        #     self.metric_func = onehot_accuracy
-        # else:
-        #     self.metric_func = metric_func
-
         if metric_func=='auc_ks':
             self.metric_func = AUC_KS
         else:
             self.metric_func = onehot_accuracy
 
+        self.pred = None
 
         self.broadcaster = BroadcastClient(self.channel, self.logger)
         # get labels
         self.label_data = None
+        self.raw_label_data = None
 
     def _before_training(self):
         # send config dict to every data client
@@ -57,6 +55,7 @@ class MainClient(MPCC.MainClient):
             self.send_check_msg(self.label_client_id,
                                 PackedMessage(MessageType.XGBOOST_TRAIN, True))
             self.label_data = self.receive_check_msg(self.label_client_id, MessageType.XGBOOST_LABEL).data
+            self.raw_label_data = deepcopy(self.label_data)
         except:
             self.logger.logE("Receive label from label client failed. Stop training.")
             return False
@@ -100,6 +99,22 @@ class MainClient(MPCC.MainClient):
         if not self.get_residual(selected):
             return False
 
+        preds = self.broadcaster.receive_all(self.feature_client_ids, MessageType.XGBOOST_PRED_LABEL)
+        if self.broadcaster.error:
+            self.logger.logE("Get predict for each epoch failed. Stop Training")
+            return False
+
+        pred = np.zeros((self.raw_label_data.shape[0]))
+        for k, v in preds.items():
+            pred += v
+        pred = pred.reshape(-1, 1)
+        try:
+            metric = self.metric_func(self.raw_label_data, pred)
+            msg = PackedMessage(MessageType.XGBOOST_PRED_LABEL, (self.label_data.mean(), metric))
+            self.send_check_msg(self.label_client_id, msg)
+        except:
+            self.logger.logE("Send predict label to label client fail. Stop Training")
+            return False
         return True
 
     def start_train(self):
@@ -176,10 +191,10 @@ class MainClient(MPCC.MainClient):
         for y_pred in y_pred_dict.values():
             y_preds[:] += y_pred
 
-        print(y_preds)
+        # print(y_preds)
+        y_preds = y_preds.reshape(-1, 1)
         res = self.metric_func(y_true, y_preds)
 
-        print(res)
-        self.logger.log("Predict auc={:.2f}, ks={:.2f}".format(*res))
+        self.logger.log("Predict metric {}".format(res))
 
 

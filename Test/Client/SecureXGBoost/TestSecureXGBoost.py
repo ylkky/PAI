@@ -38,7 +38,7 @@ def test_credit_data_2pc():
             "seed": 8964
         },
         "max_iteration": 5,
-        "max_depth": 4,
+        "max_depth": 2,
         "reg_lambda" : 1,
         "gamma" : 0.,
         "col_sample_ratio" : 0.8,
@@ -59,7 +59,7 @@ def test_credit_data_2pc():
     label_client = LabelClient(channel4, Logger(prefix="Lable client:"), mpc_paras,
                                CSVDataLoader("Test/TestDataset/Data/credit_default.csv", list(range(400)), list(range(72, 73))),
                                CSVDataLoader("Test/TestDataset/Data/credit_default.csv", list(range(400, 500)),
-                                             list(range(72, 73))))
+                                             list(range(72, 73))), AUC_KS, "")
     main_client_start_th = threading.Thread(
         target=main_client.start_train,
     )
@@ -71,7 +71,7 @@ def test_credit_data_2pc():
     data_client0_th.start()
     data_client1_th.start()
     label_client_th.start()
-    time.sleep(2)
+    time.sleep(1)
     main_client_start_th.start()
     print("====== Stop the triplet provider, the training should be auto exited =========")
     main_client_start_th.join()
